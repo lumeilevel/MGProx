@@ -1,26 +1,32 @@
 clear;
-N = [50, 100, 150, 200];
-smooth = [1, 5, 10, 15];
+N = [50 64 100 128 150 200 256];
+smooth = [1, 5, 10];
+% smooth = [1];
+
 lsm = length(smooth);
 algs = cell(lsm+1, 1); algs{1} = 'APG';
 for i = 1 : lsm
     algs{i+1} = sprintf('MG-%d', smooth(i));
 end
-choice = [1 2 3];
+choice = [1];
 infObj = 0;
+tol = 1e-15;
 linespec = ['o', '+', '*', '.', 'x'];
+options = optimoptions('quadprog', 'Display', 'off', 'Algorithm', 'interior-point-convex', ...
+    'MaxIterations', 10, 'OptimalityTolerance', tol, 'StepTolerance', tol*0.01, 'LinearSolver', 'sparse');
 for k = choice
     n = N(k);
     h = 1 / (n + 1);
     Q0 = gallery('poisson', n) / h^2;
     L0 = 8 / h^2;
-    % L0 = svds(Q0,1);
+%     L0 = svds(Q0,1);
+    mu0 = svds(Q0, 1, 'smallest');
+    conv_fact = 1 - mu0 / L0;
     phi = max(sin((1 : n)*3*pi/n), 0);
     phi = vec(phi' * phi);
     p0 = Q0 * phi;
     x_ini = rand(n^2, 1);
-    L = floor(2*log2(n)) - 1;
-    tol = 1e-6;
+%     L = floor(2*log2(n)) - 1;
     
     x = cell(1+lsm, 1);
     hist = cell(1+lsm, 1);
@@ -30,15 +36,21 @@ for k = choice
     toc
     infObj = min(infObj, min(hist{1}.F));
     
+    levels = 1 : 1;
+    llv = length(levels);
     for i = 1 : lsm
         s = smooth(i);
-        fprintf('MGProx-%d\n', s);
-        tic;
-        [x{i+1}, hist{i+1}] = mgprox(Q0, p0, L0, x_ini, tol, L, s);
-        toc
-        infObj = min(infObj, min(hist{i+1}.F));
+        for j = 1 : llv
+            L = levels(j);
+            fprintf('\nMGProx-%d with level %d\n', s, L);
+            tic;
+            [x{i*j+1}, hist{i*j+1}] = mgproxL(Q0, p0, L0, x_ini, tol, L, s, options);
+            toc
+            infObj = min(infObj, min(hist{i*j+1}.F));
+        end
     end
 end
+return;
 
 figure(1);
 for i = 1 : lsm + 1

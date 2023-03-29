@@ -1,6 +1,6 @@
 function [x, hist] = apg(Q, p, L0, x_ini, eps)
     [n, ~] = size(Q);
-    max_iter = n;
+    max_iter = n*10;
     t = 1;  t0 = 1;
     eta = 0.5;
     tauk = L0;

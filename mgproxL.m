@@ -1,4 +1,4 @@
-function [xk, hist] = mgprox(Q0, p0, L0, x_ini, eps, L, smooth)
+function [xk, hist] = mgproxL(Q0, p0, L0, x_ini, eps, L, smooth, options)
     xk0 = x_ini; xk = xk0;
     [n, ~] = size(Q0);
     max_iter = n;
@@ -16,7 +16,7 @@ function [xk, hist] = mgprox(Q0, p0, L0, x_ini, eps, L, smooth)
     p = cell(L+1, 1); p{1} = p0;     % p_{l}
     for l = 1 : L
         np = floor(n/2);
-        Rbar{l} = sparse([1:np,1:np,2:np], [2*(1:np)-1,2:2:n,2:2:2*np-2], [0.5*ones(np,1);0.25*ones(2*np-1,1)]);
+        Rbar{l} = sparse([1:np,1:np,2:np], [2*(1:np)-1,2:2:n,2:2:2*np-2], [2*ones(np,1);1*ones(2*np-1,1)]);
         if mod(n, 2) == 1
             Rbar{l} = [Rbar{l}, sparse(np, 1)];
         end
@@ -50,8 +50,8 @@ function [xk, hist] = mgprox(Q0, p0, L0, x_ini, eps, L, smooth)
         end
         if iter > 4
             if max(hist.relDist(iter), 0.1*hist.relObjdiff(iter)) < eps
-                fprintf("\n MGProx Early Stopping--iteration: %d\n", iter);
-                fprintf('[a] relDist < %3.2e', tol);
+                fprintf("\n APG Early Stopping--iteration: %d\n", iter);
+                fprintf('[a] relDist < %3.2e', eps);
                 fprintf("norm(X-Xold,'fro')/norm(X,'fro') = %f\n", hist.relDist(iter));
                 hist.F = hist.F(1:iter);
                 hist.G = hist.G(1:iter);
@@ -61,8 +61,8 @@ function [xk, hist] = mgprox(Q0, p0, L0, x_ini, eps, L, smooth)
                 break
             end
             if max(0.5*hist.relDist(iter), 100*hist.relObjdiff(iter)) < eps
-                fprintf("\n MGProx Early Stopping--iteration: %d\n", iter);
-                fprintf('[b] relObjdiff < %3.2e', 0.01*tol);
+                fprintf("\n APG Early Stopping--iteration: %d\n", iter);
+                fprintf('[b] relObjdiff < %3.2e', 0.01*eps);
                 hist.F = hist.F(1:iter);
                 hist.G = hist.G(1:iter);
                 hist.dist = hist.dist(iter);
@@ -83,11 +83,13 @@ function [xk, hist] = mgprox(Q0, p0, L0, x_ini, eps, L, smooth)
             % create the tau vector
             tau{l+1} = Q{l+1}*x{l+1}+p{l+1}-R{l}*(Q{l}*y{l}+p{l});
         end
+        
         % Solve level-L coarse problem
 %         tic;
         b = p{L+1}-tau{L+1};
-        w = -Q_inv*b;       
-        if any(w < 0)
+        w = -Q_inv*b;
+        w(w < eps) = 0;
+        if any(w < -eps)
             if n == 2
                 w = [0;0];
                 if b(1) <= 0 && b(1)*Q{L+1}(2,1) <= b(2)*Q{L+1}(1,1)
@@ -97,7 +99,7 @@ function [xk, hist] = mgprox(Q0, p0, L0, x_ini, eps, L, smooth)
                     w(2) = -b(2) / Q{L+1}(2,2);
                     w(1) = 0;
                 end
-            else
+            elseif n == 3
                 w = [0;0;0];
                 if b(1)<=0 && b(1)*Q{L+1}(2,1)<=b(2)*Q{L+1}(1,1) && b(1)*Q{L+1}(3,1)<=b(3)*Q{L+1}(1,1)
                     w(1) = -b(1) / Q{L+1}(1,1);
@@ -117,7 +119,10 @@ function [xk, hist] = mgprox(Q0, p0, L0, x_ini, eps, L, smooth)
                         w=[0;w3];
                     end
                 end
-            end   
+            else
+                w = quadprog(Q{L+1}, b, [],[],[],[],zeros(n,1),[],[], options);
+            end
+            w(w < eps) = 0;
         end
 %         time = time + toc;
 
