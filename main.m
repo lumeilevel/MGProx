@@ -8,7 +8,7 @@ algs = cell(lsm+1, 1); algs{1} = 'APG';
 for i = 1 : lsm
     algs{i+1} = sprintf('MG-%d', smooth(i));
 end
-choice = [1];
+choice = [3];
 infObj = 0;
 tol = 1e-15;
 linespec = ['o', '+', '*', '.', 'x'];
@@ -43,9 +43,9 @@ for k = choice
         for j = 1 : llv
             L = levels(j);
             fprintf('\nMGProx-%d with level %d\n', s, L);
-            tic;
+            t0 = tic;
             [x{i*j+1}, hist{i*j+1}] = mgproxL(Q0, p0, L0, x_ini, tol, L, s, options);
-            toc
+            toc(t0);
             infObj = min(infObj, min(hist{i*j+1}.F));
         end
     end

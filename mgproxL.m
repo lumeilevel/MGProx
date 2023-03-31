@@ -5,6 +5,7 @@ function [xk, hist] = mgproxL(Q0, p0, L0, x_ini, eps, L, smooth, options)
     c = 2;
 %     t = 1;  t0 = 1;
     objold = 0.5*xk0'*Q0*xk0 + p0'*xk0;
+    hist.time = 0;
     hist.F = zeros(max_iter, 1);
     hist.G = zeros(max_iter, 1);
     hist.dist = zeros(max_iter, 1);
@@ -85,7 +86,7 @@ function [xk, hist] = mgproxL(Q0, p0, L0, x_ini, eps, L, smooth, options)
         end
         
         % Solve level-L coarse problem
-%         tic;
+        tic;
         b = p{L+1}-tau{L+1};
         w = -Q_inv*b;
         w(w < eps) = 0;
@@ -124,7 +125,7 @@ function [xk, hist] = mgproxL(Q0, p0, L0, x_ini, eps, L, smooth, options)
             end
             w(w < eps) = 0;
         end
-%         time = time + toc;
+        hist.time = hist.time + toc;
 
         for l = L : -1 : 1
             % coarse correction with line search
