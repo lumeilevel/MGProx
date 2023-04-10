@@ -1,5 +1,5 @@
 clear;
-N = [50 64 100 128 150 200 256];
+N = [50 64 82 100 128 150 200 256];
 smooth = [1, 5, 10];
 % smooth = [1];
 
@@ -8,9 +8,10 @@ algs = cell(lsm+1, 1); algs{1} = 'APG';
 for i = 1 : lsm
     algs{i+1} = sprintf('MG-%d', smooth(i));
 end
-choice = [3];
+choice = [2];
 infObj = 0;
 tol = 1e-15;
+verbose = 1;
 linespec = ['o', '+', '*', '.', 'x'];
 options = optimoptions('quadprog', 'Display', 'off', 'Algorithm', 'interior-point-convex', ...
     'MaxIterations', 10, 'OptimalityTolerance', tol, 'StepTolerance', tol*0.01, 'LinearSolver', 'sparse');
@@ -32,11 +33,11 @@ for k = choice
     hist = cell(1+lsm, 1);
     disp('APG');
     tic;
-    [x{1}, hist{1}] = apg(Q0, p0, L0, x_ini, tol);
-    toc
+    [x{1}, hist{1}] = apg(Q0, p0, L0, x_ini, tol, verbose);
+    toc;
     infObj = min(infObj, min(hist{1}.F));
     
-    levels = 1 : 1;
+    levels = [1];
     llv = length(levels);
     for i = 1 : lsm
         s = smooth(i);
@@ -44,7 +45,7 @@ for k = choice
             L = levels(j);
             fprintf('\nMGProx-%d with level %d\n', s, L);
             t0 = tic;
-            [x{i*j+1}, hist{i*j+1}] = mgproxL(Q0, p0, L0, x_ini, tol, L, s, options);
+            [x{i*j+1}, hist{i*j+1}] = mgproxL(Q0, p0, L0, x_ini, tol, L, s, verbose);
             toc(t0);
             infObj = min(infObj, min(hist{i*j+1}.F));
         end

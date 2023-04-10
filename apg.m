@@ -1,4 +1,4 @@
-function [x, hist] = apg(Q, p, L0, x_ini, eps)
+function [x, hist] = apg(Q, p, L0, x_ini, eps, verbose)
     [n, ~] = size(Q);
     max_iter = n*10;
     t = 1;  t0 = 1;
@@ -26,15 +26,19 @@ function [x, hist] = apg(Q, p, L0, x_ini, eps)
             hist.dist = hist.dist(iter);
             hist.relDist = hist.relDist(iter);
             hist.relObjdiff = hist.relObjdiff(iter);
-            fprintf('\n APG early stopping--iteration: %d\n', iter);
-            fprintf('[c] proximal first-order optimality condition satisfied\n')
+            if verbose
+                fprintf('\n APG early stopping--iteration: %d\n', iter);
+                fprintf('[c] proximal first-order optimality condition satisfied\n')
+            end
             break
         end
         if iter > 4
             if max(hist.relDist(iter), 0.1*hist.relObjdiff(iter)) < eps
-                fprintf("\n APG Early Stopping--iteration: %d\n", iter);
-                fprintf('[a] relDist < %3.2e', tol);
-                fprintf("norm(X-Xold,'fro')/norm(X,'fro') = %f\n", hist.relDist(iter));
+                if verbose
+                    fprintf("\n APG Early Stopping--iteration: %d\n", iter);
+                    fprintf('[a] relDist < %3.2e', tol);
+                    fprintf("norm(X-Xold,'fro')/norm(X,'fro') = %f\n", hist.relDist(iter));
+                end
                 hist.F = hist.F(1:iter);
                 hist.G = hist.G(1:iter);
                 hist.dist = hist.dist(1:iter);
@@ -43,8 +47,10 @@ function [x, hist] = apg(Q, p, L0, x_ini, eps)
                 break
             end
             if max(0.5*hist.relDist(iter), 100*hist.relObjdiff(iter)) < eps
-                fprintf("\n APG Early Stopping--iteration: %d\n", iter);
-                fprintf('[b] relObjdiff < %3.2e', 0.01*tol);
+                if verbose
+                    fprintf("\n APG Early Stopping--iteration: %d\n", iter);
+                    fprintf('[b] relObjdiff < %3.2e', 0.01*eps);
+                end
                 hist.F = hist.F(1:iter);
                 hist.G = hist.G(1:iter);
                 hist.dist = hist.dist(1:iter);
@@ -55,7 +61,7 @@ function [x, hist] = apg(Q, p, L0, x_ini, eps)
         end
         y = x + (t0-1)/t*(x-x0);
         tau = eta * tauk;
-        for i = 1 : 1e2
+        for i = 1 : 1e3
             g = y - 1/tau*(Q*y+p);
             s = max(0, g);
             if (s-y)'*Q*(s-y) <= tau*(s-y)'*(s-y)
