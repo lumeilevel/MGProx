@@ -8,7 +8,7 @@ algs = cell(lsm+1, 1); algs{1} = 'APG';
 for i = 1 : lsm
     algs{i+1} = sprintf('MG-%d', smooth(i));
 end
-choice = [2];
+choice = [4];
 infObj = 0;
 tol = 1e-15;
 verbose = 1;

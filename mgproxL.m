@@ -25,7 +25,7 @@ function [xk, hist] = mgproxL(Q0, p0, L0, x_ini, eps, L, smooth, verbose)
         Q{l+1} = c * Rbar{l} * Q{l} * Rbar{l}';
         p{l+1} = Rbar{l} * p{l};
     end
-    Q_inv = Q{L+1}^(-1);
+%     Q_inv = Q{L+1}^(-1);
     Ll = svds(Q{L+1}, 1);
     for iter = 1 : max_iter
         R = Rbar;                       % R_{l->l+1}
@@ -97,12 +97,12 @@ function [xk, hist] = mgproxL(Q0, p0, L0, x_ini, eps, L, smooth, verbose)
         b = p{L+1}-tau{L+1};
         
         %%% In this way, we can still get the solution.
-        w = -Q_inv*b;
-        w(w < eps) = 0;
+%         w = -Q_inv*b;
+%         w(w < eps) = 0;
         %%% This step is the most time-consuming.
         
         tic;
-        if any(w < -eps)
+%         if any(w < -eps)
             if n == 2
                 w = [0;0];
                 if b(1) <= 0 && b(1)*Q{L+1}(2,1) <= b(2)*Q{L+1}(1,1)
@@ -133,13 +133,16 @@ function [xk, hist] = mgproxL(Q0, p0, L0, x_ini, eps, L, smooth, verbose)
                     end
                 end
             else
+                w = -Q{L+1} \ b;
+%                 options = optimoptions('quadprog', 'Display', 'off', 'Algorithm', 'interior-point-convex', ...
+%     'MaxIterations', 10, 'OptimalityTolerance', eps, 'StepTolerance', eps*0.01, 'LinearSolver', 'sparse');
 %                 w = quadprog(Q{L+1}, b, [],[],[],[],zeros(n,1),[],[], options);
-                [w, ~] = apg(Q{L+1}, b, Ll, w, eps*1000, 0);
+                [w, ~] = apg(Q{L+1}, b, Ll, w, eps*1e9, 0);
 %                 [w, ~] = mgproxL(Q{L+1}, b, Ll, w, eps, L, 20, options, 0);
 %                 [w, ~] = mgprox(Q{L+1}, b, Ll, w, eps*1e4, floor(2*log2(n)) - 1, smooth);
             end
 %             w(w < eps) = 0;
-        end
+%         end
         hist.time = hist.time + toc;
 
         for l = L : -1 : 1
