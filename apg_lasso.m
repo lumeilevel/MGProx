@@ -1,24 +1,25 @@
-function [x, hist] = apg(Q, p, L0, x_ini, tol, verbose)
-    [n, ~] = size(Q);
-    max_iter = n*10;
+function [x, hist] = apg_lasso(A, b, c, lambda, L0, x_ini, tol, verbose)
+    [n, ~] = size(A);
+    max_iter = n*1e2;
     t = 1;  t0 = 1;
     eta = 0.5;
     tauk = L0;
     x0 = x_ini; x = x0;
-    objold = 0.5*x0'*Q*x0 + p'*x;
+    objold = 0.5*((A*x0-b)'*(A*x0-b)) + c'*x0 + lambda*norm(x0,1);
     hist.F = zeros(max_iter, 1);
     hist.G = zeros(max_iter, 1);
     hist.dist = zeros(max_iter, 1);
     hist.relDist = zeros(max_iter, 1);
     hist.relObjdiff = zeros(max_iter, 1);
     for iter = 1 : max_iter
-        df = Q*x+p;
-        obj = 0.5*x'*(df+p);
+        Axb = A*x-b;
+        grad = A'*Axb + c;
+        hist.dist(iter) = norm(grad);
+        obj = 0.5*(Axb'*Axb) + c'*x + lambda*norm(x,1);
         hist.F(iter) = obj;
-        hist.G(iter) = L0*norm(x-max(0,x-1/L0*df));
+        hist.G(iter) = L0*norm(x-prox_l1(x-grad/L0,lambda/L0));
         hist.relDist(iter) = norm(x-x0) / norm(x);
-        hist.relObjdiff(iter) = abs(obj - objold) / max(obj, 1);
-        hist.dist(iter) = norm(df);
+        hist.relObjdiff(iter) = abs(obj - objold) / max(obj, 1);       
         % stopping criterion
         if hist.G(iter) / hist.G(1) <= tol
             hist.F = hist.F(1:iter);
@@ -60,11 +61,12 @@ function [x, hist] = apg(Q, p, L0, x_ini, tol, verbose)
             end
         end
         y = x + (t0-1)/t*(x-x0);
-        tau = eta * tauk;
-        for i = 1 : 1e3
-            g = y - 1/tau*(Q*y+p);
-            s = max(0, g);
-            if (s-y)'*Q*(s-y) <= tau*(s-y)'*(s-y)
+        tau = eta * tauk;   Ayb = A*y - b;  grad = A'*Ayb + c;
+        for j = 1 : 1e3
+            s = prox_l1(y - grad / tau, lambda / tau);
+            Asb = A * s - b;
+            sy = s - y;
+            if (Asb'*Asb) <= (Ayb'*Ayb) + 2*sy'*grad + tau*(sy'*sy)
                 tauk = tau;
                 break;
             else
