@@ -8,9 +8,9 @@ algs = cell(lsm+1, 1); algs{1} = 'APG';
 for i = 1 : lsm
     algs{i+1} = sprintf('MG-%d', smooth(i));
 end
-choice = [2];
+choice = [3];
 infObj = 1e5;
-tol = 1e-9;
+tol = 1e-12;
 verbose = 1;
 linespec = ['o', '+', '*', '.', 'x'];
 % options = optimoptions('quadprog', 'Display', 'off', 'Algorithm', 'interior-point-convex', ...
@@ -23,9 +23,9 @@ for k = choice
 %     L0 = svds(Q0,1);
     mu0 = svds(A, 1, 'smallest');
     conv_fact = 1 - mu0 / L0;
-    b = randn(n, 1);
+    b = randn(n, 1) / sqrt(n);
     c = zeros(n, 1);
-%     c = randn(n, 1);
+%     c = randn(n, 1) / sqrt(n);
     lambda = 1000 / n;
     x_ini = rand(n, 1);
     
@@ -37,7 +37,7 @@ for k = choice
     toc;
     infObj = min(infObj, min(hist{1}.F));
     
-    levels = [3:6];
+    levels = [1:8];
     llv = length(levels);
     for i = 1 : lsm
         s = smooth(i);

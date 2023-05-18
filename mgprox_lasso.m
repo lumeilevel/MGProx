@@ -98,6 +98,7 @@ function [xk, hist] = mgprox_lasso(A0, b0, c0, lambda, L0, x_ini, tol, level, sm
         % Solve level-L coarse problem       
         tic;
         w = A{level+1}'*A{level+1} \ (A{level+1}'*b0+tau{level+1});
+        hist.time = hist.time + toc;
 %         w = zeros(n, 1);
 %                 options = optimoptions('quadprog', 'Display', 'off', 'Algorithm', 'interior-point-convex', ...
 %     'MaxIterations', 10, 'OptimalityTolerance', eps, 'StepTolerance', eps*0.01, 'LinearSolver', 'sparse');
@@ -107,7 +108,7 @@ function [xk, hist] = mgprox_lasso(A0, b0, c0, lambda, L0, x_ini, tol, level, sm
 %                 [w, ~] = mgprox(Q{L+1}, b, Ll, w, eps*1e4, floor(2*log2(n)) - 1, smooth);
 %             w(w < eps) = 0;
 
-        hist.time = hist.time + toc;
+        
 
         for l = level : -1 : 1
             % coarse correction with line search

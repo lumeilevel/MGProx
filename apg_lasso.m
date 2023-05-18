@@ -34,6 +34,20 @@ function [x, hist] = apg_lasso(A, b, c, lambda, L0, x_ini, tol, verbose)
             break
         end
         if iter > 4
+            if hist.G(iter) > hist.G(iter-1) * 1e1
+                iter = iter - 1;
+                hist.F = hist.F(1:iter);
+                hist.G = hist.G(1:iter);
+                hist.dist = hist.dist(1:iter-1);
+                hist.relDist = hist.relDist(1:iter);
+                hist.relObjdiff = hist.relObjdiff(1:iter);
+                if verbose
+                    fprintf('\n APG early stopping--iteration: %d\n', iter);
+                    fprintf('[d] sudden jump in proximal first-order optimality condition\n')
+                end
+                x = x0;
+                break
+            end
             if max(hist.relDist(iter), 0.1*hist.relObjdiff(iter)) < tol
                 if verbose
                     fprintf("\n APG Early Stopping--iteration: %d\n", iter);
