@@ -1,10 +1,10 @@
-function [xk, hist] = mgprox_lasso(A0, b0, c0, lambda, L0, x_ini, tol, level, smooth, verbose)
+function [xk, hist] = mgprox_l0(A0, b0, c0, lambda, L0, x_ini, tol, level, smooth, verbose)
     xk0 = x_ini; xk = xk0;
     [n, ~] = size(A0);
     max_iter = n*1e2;
     crp = 2;
 %     t = 1;  t0 = 1;
-    objold = 0.5*((A0*xk0-b0)'*(A0*xk0-b0)) + c0'*xk0 + lambda*norm(xk0,1);
+    objold = 0.5*((A0*xk0-b0)'*(A0*xk0-b0)) + c0'*xk0 + lambda*sum(abs(xk0) > eps);
     hist.time_forward = 0;  hist.time_backward = 0; hist.time_ls = 0;
     hist.time_ini = 0;      hist.time_apg = 0;
     ini = tic;
@@ -40,9 +40,9 @@ function [xk, hist] = mgprox_lasso(A0, b0, c0, lambda, L0, x_ini, tol, level, sm
         Axb = A0*xk-b0;
         grad = A0'*Axb + c0;
         hist.dist(iter) = norm(grad);
-        obj = 0.5*(Axb'*Axb) + c0'*xk + lambda*norm(xk,1);
+        obj = 0.5*(Axb'*Axb) + c0'*xk + lambda*sum(abs(xk) > eps);
         hist.F(iter) = obj;
-        hist.G(iter) = L0*norm(xk-prox_l1(xk-grad/L0,lambda/L0));
+        hist.G(iter) = L0*norm(xk-prox_l0(xk-grad/L0,lambda/L0));
         hist.relDist(iter) = norm(xk-xk0) / norm(xk);
         hist.relObjdiff(iter) = abs(obj - objold) / max(obj, 1);
 
@@ -68,7 +68,7 @@ function [xk, hist] = mgprox_lasso(A0, b0, c0, lambda, L0, x_ini, tol, level, sm
                 hist.relDist = hist.relDist(1:iter);
                 hist.relObjdiff = hist.relObjdiff(1:iter);
                 if verbose
-                    fprintf('\n APG early stopping--iteration: %d\n', iter);
+                    fprintf('\n MGProx early stopping--iteration: %d\n', iter);
                     fprintf('[d] sudden jump in proximal first-order optimality condition\n')
                 end
                 xk = xk0;
@@ -105,25 +105,26 @@ function [xk, hist] = mgprox_lasso(A0, b0, c0, lambda, L0, x_ini, tol, level, sm
             % pre-smoothing
             y{l} = x{l};
             for sm = 1 : smooth
-                y{l} = prox_l1(y{l}-(A{l}'*(A{l}*y{l}-b0)+c{l}-tau{l})/L(l), lambda/L(l));
+                y{l} = prox_l0(y{l}-(A{l}'*(A{l}*y{l}-b0)+c{l}-tau{l})/L(l), lambda/L(l));
             end
             % generate the adaptive restriction operator
             R{l}(:,~y{l}) = 0;
             x{l+1} = R{l} * y{l};
             % create the tau vector
-            tau{l+1} = A{l+1}'*(A{l+1}*x{l+1}-b0)+c{l+1} + sign(x{l+1})- R{l}*(A{l}'*(A{l}*y{l}-b0)+c{l}+sign(y{l}));
+            %%% how to deal with the subdifferential of l0 norm
+            tau{l+1} = A{l+1}'*(A{l+1}*x{l+1}-b0)+c{l+1} - R{l}*(A{l}'*(A{l}*y{l}-b0)+c{l});
         end
         hist.time_forward = hist.time_forward + toc(forward);
         % Solve level-L coarse problem       
         apg = tic;
-%         w = A{level+1}'*A{level+1} \ (A{level+1}'*b0+tau{level+1});
-        w = rand(np, 1) / sqrt(np);
+        w = A{level+1}'*A{level+1} \ (A{level+1}'*b0+tau{level+1});
+%         w = rand(np, 1) / sqrt(np);
         
 %         w = zeros(n, 1);
 %                 options = optimoptions('quadprog', 'Display', 'off', 'Algorithm', 'interior-point-convex', ...
 %     'MaxIterations', 10, 'OptimalityTolerance', eps, 'StepTolerance', eps*0.01, 'LinearSolver', 'sparse');
 %                 w = quadprog(Q{L+1}, b, [],[],[],[],zeros(n,1),[],[], options);
-                [w, ~] = apg_lasso(A{level+1}, b0, c{level+1}-tau{level+1}, lambda, L(level+1), w, 1e-2, 0);
+                [w, ~] = apg_l0(A{level+1}, b0, c{level+1}-tau{level+1}, lambda, L(level+1), w, 1e-2, 0);
 %                 [w, ~] = mgproxL(Q{L+1}, b, Ll, w, eps, L, 20, options, 0);
 %                 [w, ~] = mgprox(Q{L+1}, b, Ll, w, eps*1e4, floor(2*log2(n)) - 1, smooth);
 %             w(w < eps) = 0;
@@ -136,12 +137,13 @@ function [xk, hist] = mgprox_lasso(A0, b0, c0, lambda, L0, x_ini, tol, level, sm
             alpha = 1e1;
 %             grad = A{l}'*(A{l}*y{l}-b0) + c{l};
             Ayb = A{l} * y{l} - b0;
-            gy = lambda * norm(y{l},1);
+            gy = lambda * sum(abs(y{l}) > eps);
+%             cor = alpha*crp*R{l}'*(w-x{l+1});
             cor0 = crp*R{l}'*(w-x{l+1});
             while 1
                 cor = alpha * cor0;
                 Ax = A{l}*cor;
-                if 0.5*(Ax'*Ax) + (Ax'*Ayb) + cor'*c{l} + lambda*norm(y{l}+cor,1) <= gy + eps
+                if 0.5*(Ax'*Ax) + (Ax'*Ayb) + cor'*c{l} + lambda*sum(abs(y{l}+cor) > eps) <= gy + eps
                     z = y{l} + cor;
                     break;
                 elseif alpha > eps
@@ -156,7 +158,7 @@ function [xk, hist] = mgprox_lasso(A0, b0, c0, lambda, L0, x_ini, tol, level, sm
             % post-smoothing
             w = z;
             for sm = 1 : smooth
-                w = prox_l1(w-(A{l}'*(A{l}*w-b0)+c{l}-tau{l})/L(l), lambda/L(l));
+                w = prox_l0(w-(A{l}'*(A{l}*w-b0)+c{l}-tau{l})/L(l), lambda/L(l));
             end
         end
         hist.time_backward = hist.time_backward + toc(backward);

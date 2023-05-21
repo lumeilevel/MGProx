@@ -1,11 +1,11 @@
-function [x, hist] = apg_lasso(A, b, c, lambda, L0, x_ini, tol, verbose)
+function [x, hist] = apg_l0(A, b, c, lambda, L0, x_ini, tol, verbose)
     [n, ~] = size(A);
     max_iter = n*1e2;
     t = 1;  t0 = 1;
     eta = 0.5;
     tauk = L0;
     x0 = x_ini; x = x0;
-    objold = 0.5*((A*x0-b)'*(A*x0-b)) + c'*x0 + lambda*norm(x0,1);
+    objold = 0.5*((A*x0-b)'*(A*x0-b)) + c'*x0 + lambda*sum(abs(x0) > eps);
     hist.F = zeros(max_iter, 1);
     hist.G = zeros(max_iter, 1);
     hist.dist = zeros(max_iter, 1);
@@ -16,9 +16,9 @@ function [x, hist] = apg_lasso(A, b, c, lambda, L0, x_ini, tol, verbose)
         Axb = A*x-b;
         grad = A'*Axb + c;
         hist.dist(iter) = norm(grad);
-        obj = 0.5*(Axb'*Axb) + c'*x + lambda*norm(x,1);
+        obj = 0.5*(Axb'*Axb) + c'*x + lambda*sum(abs(x) > eps);
         hist.F(iter) = obj;
-        hist.G(iter) = L0*norm(x-prox_l1(x-grad/L0,lambda/L0));
+        hist.G(iter) = L0*norm(x-prox_l0(x-grad/L0,lambda/L0));
         hist.relDist(iter) = norm(x-x0) / norm(x);
         hist.relObjdiff(iter) = abs(obj - objold) / max(obj, 1);       
         % stopping criterion
@@ -75,7 +75,7 @@ function [x, hist] = apg_lasso(A, b, c, lambda, L0, x_ini, tol, verbose)
         tic;
         tau = eta * tauk;   Ayb = A*y - b;  grad_c = A'*Ayb;
         for j = 1 : 1e3
-            s = prox_l1(y - (grad_c+c) / tau, lambda / tau);
+            s = prox_l0(y - (grad_c+c) / tau, lambda / tau);
             Asb = A * s - b;
             sy = s - y;
             if (Asb'*Asb) <= (Ayb'*Ayb) + 2*sy'*grad_c + tau*(sy'*sy) + eps

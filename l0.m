@@ -9,9 +9,9 @@ algs = cell(lsm+1, 1); algs{1} = 'APG';
 for i = 1 : lsm
     algs{i+1} = sprintf('MG-%d', smooth(i));
 end
-choice = [4];
+choice = [2];
 infObj = 1e5;
-tol = 1e-8;
+tol = 1e-9;
 verbose = 1;
 % linespec = ['o', '+', '*', '.', 'x'];
 % options = optimoptions('quadprog', 'Display', 'off', 'Algorithm', 'interior-point-convex', ...
@@ -19,16 +19,15 @@ verbose = 1;
 for k = choice
     n = N(k);
     A = randn(n, n);
-%     A = A'*A / sqrt(n);
+    A = A'*A / sqrt(n);
     L0 = norm(A'*A);
 %     L0 = svds(Q0,1);
     mu0 = svds(A, 1, 'smallest');
     conv_fact = 1 - mu0 / L0;
-    b = randn(n, 1) / n^(0.25);
-%     b = randn(n, 1) / sqrt(n);
+    b = randn(n, 1);
     c = zeros(n, 1);
 %     c = randn(n, 1) / sqrt(n);
-    lambda = 1000 / n;
+    lambda = 1e2 / n;
 %     x_ini = rand(n, 1);
     x_ini = rand(n, 1) / sqrt(n);
 %     x_ini = randn(n, 1) / sqrt(n);
@@ -39,11 +38,11 @@ for k = choice
     hist = cell(1+lsm, 1);
     disp('APG');
     t0 = tic;
-    [x{1}, hist{1}] = apg_lasso(A, b, c, lambda, L0, x_ini, tol, verbose);
+    [x{1}, hist{1}] = apg_l0(A, b, c, lambda, L0, x_ini, tol, verbose);
     toc(t0);
     infObj = min(infObj, min(hist{1}.F));
-    
-    levels = [1,4,5,6];
+%     return;
+    levels = [1:5];
     llv = length(levels);
     for i = 1 : lsm
         s = smooth(i);
@@ -51,43 +50,9 @@ for k = choice
             L = levels(j);
             fprintf('\nMGProx-%d with level %d\n', s, L);
             t0 = tic;
-            [x{i*j+1}, hist{i*j+1}] = mgprox_lasso(A, b, c, lambda, L0, x_ini, tol, L, s, verbose);
+            [x{i*j+1}, hist{i*j+1}] = mgprox_l0(A, b, c, lambda, L0, x_ini, tol, L, s, verbose);
             toc(t0);
             infObj = min(infObj, min(hist{i*j+1}.F));
         end
     end
 end
-% tic;
-% cvx_begin quiet
-%     variable y(n)
-%     minimize (0.5*(A*y-b)'*(A*y-b) + c'*y + lambda*norm(y,1))
-% cvx_end
-% toc;
-
-% figure(1);
-% for i = 1 : lsm + 1
-%     plot((hist{i}.F-infObj)/hist{i}.F(1), linespec(i));
-%     hold on;
-% end
-% hold off;
-% title('Function value');
-% xlabel('Iteration k');
-% ylabel('$(F_k-F_{\mbox{min}})/F_{\mbox{ini}}$', 'interpreter', 'latex');
-% legend(algs);
-% set(gca, 'YScale', 'log');
-% 
-% figure(2);
-% for i = 1 : lsm + 1
-%     plot(hist{i}.G/hist{i}.G(1), linespec(i));
-%     hold on;
-% end
-% hold off;
-% title('Norm of the proximal gradient mapping');
-% xlabel('Iteration k');
-% ylabel('$\Vert G_k \Vert/\Vert G_{\mbox{ini}} \Vert$', 'interpreter', 'latex');
-% legend(algs);
-% set(gca, 'YScale', 'log');
-
-% function f = obj(q, p, x)
-%     f = 0.5*x'*q*x + p'*x;
-% end
